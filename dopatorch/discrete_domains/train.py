@@ -23,8 +23,8 @@ import gym
 import numpy as np
 import torch
 
-import atari_lib
-import dqn_agent
+from dopatorch.discrete_domains import atari_lib
+from dopatorch.agents.dqn import dqn_agent
 
 # Define things to log
 LogTupStruct = namedtuple('Log', field_names=['episode_idx',
