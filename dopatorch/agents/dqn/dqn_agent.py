@@ -18,9 +18,8 @@ import torch.nn.functional as F
 import torch.nn as nn
 import torch.optim as optim
 
-
-import network
-import replay_memory
+from dopatorch.discrete_domains import network
+from dopatorch.replay_memory import circular_replay_buffer
 
 
 def linearly_decaying_epsilon(decay_period, step, warmup_steps, epsilon_final):
@@ -65,7 +64,7 @@ class DQNAgent(object):
         Initialize the DQN agent
 
         TODO for future:
-            - Add: update horizon (for n-step updates), summary writer,
+            - Add: update horizon (for n-step updates?), summary writer
             - Add: optimizer parameters, network parameters
 
         :param num_actions: number of actions the agent can take at any state.
@@ -147,7 +146,7 @@ class DQNAgent(object):
 
     def _init_memory(self) -> None:
         """Initialize the memory buffer"""
-        self.memory = replay_memory.CircularReplayBuffer(
+        self.memory = circular_replay_buffer.CircularReplayBuffer(
             buffer_cap=self.memory_buffer_capacity,
             history=self.history_size,
             obs_shape=self.observation_shape,
