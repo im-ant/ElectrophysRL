@@ -76,6 +76,39 @@ class nature_dqn_network(nn.Module):
         return self.fc2(h)
 
 
+class mlp_network(nn.Module):
+    """
+    Simple feed-forward network with 2 hidden layers
+    """
+
+    def __init__(self,
+                 input_size: int,
+                 hidden_size: int,
+                 num_actions: int):
+        """
+        :param input_size: size of input
+        :param num_actions: number of allowable actions
+        """
+        super(mlp_network, self).__init__()
+
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.num_actions = num_actions
+
+        # Initialize layers
+        self.fc1 = nn.Linear(input_size, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, hidden_size)
+        self.fc3 = nn.Linear(hidden_size, num_actions)
+
+        # TODO maybe add dropout / regularization
+
+    def forward(self, x):
+        h = F.relu(self.fc1(x))
+        h = F.relu(self.fc2(h))
+        return self.fc3(h)
+
+
+
 if __name__ == "__main__":
     # for testing run this directly
     print('testing')
