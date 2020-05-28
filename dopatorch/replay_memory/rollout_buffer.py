@@ -245,7 +245,7 @@ class RolloutBuffer(object):
         # ==
         # Initialize the returns tensor
         t_returns = torch.zeros((self.step + 1, 1),
-                                dtype=torch.float32)
+                                dtype=torch.float32, device=self.device)
 
         # ==
         # Compute return
@@ -259,7 +259,7 @@ class RolloutBuffer(object):
                 # NOTE TODO this has not been validated to work yet.
                 # Initialize predicted values
                 t_pred_Vs = torch.zeros((self.step + 1, 1),
-                                        dtype=torch.float32)
+                                        dtype=torch.float32, device=self.device)
                 t_pred_Vs[0:self.step] = traj_pred_values.clone().detach()
                 t_pred_Vs[-1] = next_value
 
