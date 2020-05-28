@@ -1,5 +1,5 @@
 # =============================================================================
-# Policy networks
+# The Advantage Actor-Critic agent
 #
 # Inspired by and modified from repository:
 # https://github.com/ikostrikov/
@@ -36,10 +36,10 @@ class A2CAgent(object):
                  gamma: int = 0.9,
                  use_recurrent_net: bool = False,
                  num_rollout_steps: int = 5,
-                 value_loss_coef: float =0.5,
-                 entropy_coef: float=0.01,
-                 max_grad_norm:float=0.5,
-                 use_acktr: bool=False,
+                 value_loss_coef: float = 0.5,
+                 entropy_coef: float = 0.01,
+                 max_grad_norm: float = 0.5,
+                 use_acktr: bool = False,
                  base=None,  # TODO remove need for base?
                  base_kwargs=None,
                  device='cpu'):
@@ -100,8 +100,15 @@ class A2CAgent(object):
         )
 
         # ==
-        # Variables
-        self.timestep = 0
+        # Variables and logging
+        self.per_episode_log = {
+            't': 0,
+            'cumu_optim_steps': 0,
+            'cumu_value_loss': 0.0,
+            'cumu_action_loss': 0.0,
+            'cumu_pol_entropy': 0.0,
+            'cumu_total_loss': 0.0
+        }
 
         self.t_prev_action = None
         self.t_hidden_states = None
@@ -127,12 +134,13 @@ class A2CAgent(object):
 
         # ==
         # Reset variables
-        self.timestep = 0
+        for k in self.per_episode_log:
+            self.per_episode_log[k] *= 0
 
         # ==
         # Select action
         action_idx = self._select_action()
-        self.timestep += 1
+        self.per_episode_log['t'] += 1
 
         return action_idx
 
@@ -173,7 +181,7 @@ class A2CAgent(object):
         # ==
         # Take action
         action_idx = self._select_action()
-        self.timestep += 1
+        self.per_episode_log['t'] += 1
         return action_idx
 
     def _select_action(self) -> int:
@@ -222,7 +230,7 @@ class A2CAgent(object):
         action = int(t_action.cpu().item())
         return action
 
-    def _optimize_model(self):
+    def _optimize_model(self) -> None:
         # ==
         # Get the full trajectory, t = 0, ..., T-1
         traj_tuple = self.rollout_buffer.get_trajectory()
@@ -292,7 +300,53 @@ class A2CAgent(object):
 
         self.optimizer.step()
 
-        # TODO return loss or log it somewhere
+        # ==
+        # Log losses
+        self.per_episode_log['cumu_optim_steps'] += 1
+        self.per_episode_log['cumu_value_loss'] += value_loss.item()
+        self.per_episode_log['cumu_action_loss'] += action_loss.item()
+        self.per_episode_log['cumu_pol_entropy'] += pol_entropy.item()
+        self.per_episode_log['cumu_total_loss'] += total_loss.item()
+
+        # potential TODO: log more losses
+
+    def report(self, logger, episode_idx):
+        # ==
+        # Compute the averages
+
+        avg_value_loss = 0.0
+        avg_action_loss = 0.0
+        avg_pol_entropy = 0.0
+        avg_total_loss = 0.0
+
+        if self.per_episode_log['cumu_optim_steps'] > 0:
+            avg_value_loss = (self.per_episode_log['cumu_value_loss'] /
+                              self.per_episode_log['cumu_optim_steps'])
+            avg_action_loss = (self.per_episode_log['cumu_action_loss'] /
+                               self.per_episode_log['cumu_optim_steps'])
+            avg_pol_entropy = (self.per_episode_log['cumu_pol_entropy'] /
+                               self.per_episode_log['cumu_optim_steps'])
+            avg_total_loss = (self.per_episode_log['cumu_total_loss'] /
+                              self.per_episode_log['cumu_optim_steps'])
+
+        # ==
+        # Print or log
+        if logger is None:
+            print(f'Avg: V loss: {avg_value_loss} || '
+                  f'act loss: {avg_action_loss} || '
+                  f'pol entropy: {avg_pol_entropy} || '
+                  f'total loss: {avg_total_loss}')
+        else:
+            logger.add_scalar('Timesteps', self.per_episode_log['t'],
+                              global_step=episode_idx)
+            logger.add_scalar('Avg_value_loss', avg_value_loss,
+                              global_step=episode_idx)
+            logger.add_scalar('Avg_action_loss', avg_action_loss,
+                              global_step=episode_idx)
+            logger.add_scalar('Avg_policy_entropy', avg_pol_entropy,
+                              global_step=episode_idx)
+            logger.add_scalar('Avg_total_loss', avg_total_loss,
+                              global_step=episode_idx)
 
 
 # ==

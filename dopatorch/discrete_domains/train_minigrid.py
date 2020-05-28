@@ -25,6 +25,7 @@
 import argparse
 import configparser
 import math
+import random           # only imported to set seed
 import sys
 
 import gym
@@ -226,6 +227,13 @@ if __name__ == "__main__":
     # Initialize GPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
+
+    # =====================================================
+    # Set seeds
+    torch.cuda.manual_seed_all(args.seed)
+    torch.random.manual_seed(args.seed)
+    np.random.seed(args.seed)
+    random.seed(args.seed)
 
     # =====================================================
     # Initialize logging
