@@ -25,7 +25,7 @@
 import argparse
 import configparser
 import math
-import random           # only imported to set seed
+import random  # only imported to set seed
 import sys
 
 import gym
@@ -43,21 +43,17 @@ from dopatorch.discrete_domains.minigrid_wrapper import MiniGridFlatWrapper
 # Helper methods for agent initialization
 # ========================================
 
-def init_agent(args: argparse.Namespace, env, device='cpu'):
+def init_agent(config: configparser.ConfigParser, env, device='cpu'):
     """
     Method for initializing the agent
-    :param args: argparse arguments
     :return: agent instance
     """
 
     # ===
-    # Configuration parsing
-    config = configparser.ConfigParser()
-    config.read(args.config_path)
-
-    # ===
     # Initialize agent
-    if args.agent_type == 'a2c':
+    agent_type = config['Agent']['type']
+
+    if agent_type == 'a2c':
         agent = A2CAgent(
             action_space=env.action_space,
             observation_shape=env.observation_space.shape,
@@ -81,24 +77,35 @@ def init_agent(args: argparse.Namespace, env, device='cpu'):
 # Run environment
 # ========================================
 
-def run_environment(args: argparse.Namespace,
+def run_environment(config: configparser.ConfigParser,
                     device: str = 'cpu',
                     logger: torch.utils.tensorboard.SummaryWriter = None):
     # =========
     # Set up environment
-    env = gym.make(args.env_name)
+    config_env_name = config['Training']['env_name']
+    config_seed = config['Training'].getint('seed')
+    env = gym.make(config_env_name)
     env = MiniGridFlatWrapper(env, use_tensor=False,
                               scale_observation=False,
                               scale_min=0, scale_max=10)
+    env.seed(config_seed)
 
     # =========
     # Set up agent
-    agent = init_agent(args, env, device=device)
+    agent = init_agent(config, env, device=device)
 
     # =========
     # Start training
-    print(f'Starting training, {args.num_episode} episodes')
-    for episode_idx in range(args.num_episode):
+
+    # Extract training variables
+    config_num_episodes = config['Training'].getint('num_episode')
+    config_record_video = config['Video'].getboolean('record')
+    config_video_freq = config['Video'].getint('frequency')
+    config_video_maxlen = config['Video'].getint('max_length')
+
+    # Train
+    print(f'Starting training, {config_num_episodes} episodes')
+    for episode_idx in range(config_num_episodes):
         # ==
         # Reset environment and agent
         observation = env.reset()
@@ -111,12 +118,11 @@ def run_environment(args: argparse.Namespace,
         # ==
         # (optional) Record video
         video = None
-        max_vid_len = 200
-        if args.video_freq is not None:
-            if episode_idx % int(args.video_freq) == 0:
+        if config_record_video:
+            if episode_idx % int(config_video_freq) == 0:
                 # Render first frame and insert to video array
                 frame = env.render()
-                video = np.zeros(shape=((max_vid_len,) + frame.shape),
+                video = np.zeros(shape=((config_video_maxlen,) + frame.shape),
                                  dtype=np.uint8)  # (max_vid_len, C, W, H)
                 video[0] = frame
 
@@ -136,14 +142,14 @@ def run_environment(args: argparse.Namespace,
             # ==
             # Optional video
             if video is not None:
-                if timestep < max_vid_len:
+                if timestep < config_video_maxlen:
                     video[timestep] = env.render()
 
             # ==
             # Episode done
             if done:
                 # Logging
-                if args.log_dir is not None:
+                if logger is not None:
                     # Add reward
                     logger.add_scalar('Reward', cumu_reward,
                                       global_step=episode_idx)
@@ -151,8 +157,8 @@ def run_environment(args: argparse.Namespace,
                     if video is not None:
                         # Determine last frame
                         last_frame_idx = timestep + 2
-                        if last_frame_idx > max_vid_len:
-                            last_frame_idx = max_vid_len
+                        if last_frame_idx > config_video_maxlen:
+                            last_frame_idx = config_video_maxlen
 
                         # Change to tensor
                         vid_tensor = torch.tensor(video[:last_frame_idx, :, :, :],
@@ -179,7 +185,7 @@ def run_environment(args: argparse.Namespace,
             # things are good and training is happening
 
     env.close()
-    if args.log_dir is not None:
+    if logger is not None:
         logger.close()
 
 
@@ -189,32 +195,16 @@ if __name__ == "__main__":
     # Initialize the argument parser
     parser = argparse.ArgumentParser(description='RL in discrete environment')
 
-    # ===
-    # Environmental parameters
-    parser.add_argument('--env_name', type=str,
-                        default='MiniGrid-Empty-6x6-v0', metavar='N',
-                        help='environment to initialize (default: CartPole-v1')
-    parser.add_argument('--num_episode', type=int, default=20, metavar='N',
-                        help='number of episodes to run the environment for '
-                             '(default: 500)')
-
-    # ===
-    # Agent config
-    parser.add_argument('--agent_type', type=str, default='a2c',
-                        help='string of agent type')
+    # ==
+    # Environment, agent and other training parameters
     parser.add_argument('--config_path', type=str,
                         default='./dopatorch/agents/a2c/default_config.ini',
                         help='path to the agent configuration .ini file')
 
     # ==
-    # Experimental parameters
-    parser.add_argument('--seed', type=int, default=1, metavar='S',
-                        help='random seed (default: 1)')
+    # I/O parameters
     parser.add_argument('--log_dir', type=str, default=None,
                         help='file path to the log file (default: None, printout instead)')
-    parser.add_argument('--video_freq', type=int, default=None, metavar='',
-                        help='Freq (in # episodes) to record video, only works'
-                             'if log_dir is also provided (default: None)')
     parser.add_argument('--tmpdir', type=str, default='./',
                         help='temporary directory to store dataset for training (default: cwd)')
 
@@ -223,6 +213,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(args)
 
+    # ======
+    # Parse config
+    config = configparser.ConfigParser()
+    config.read(args.config_path)
+
     # =====================================================
     # Initialize GPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -230,10 +225,11 @@ if __name__ == "__main__":
 
     # =====================================================
     # Set seeds
-    torch.cuda.manual_seed_all(args.seed)
-    torch.random.manual_seed(args.seed)
-    np.random.seed(args.seed)
-    random.seed(args.seed)
+    seed = config['Training'].getint('seed')
+    torch.cuda.manual_seed_all(seed)
+    torch.random.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
 
     # =====================================================
     # Initialize logging
@@ -254,4 +250,4 @@ if __name__ == "__main__":
 
     # =====================================================
     # Start environmental interactions
-    run_environment(args, device=device, logger=logger)
+    run_environment(config, device=device, logger=logger)
