@@ -102,6 +102,7 @@ def run_environment(config: configparser.ConfigParser,
     config_record_video = config['Video'].getboolean('record')
     config_video_freq = config['Video'].getint('frequency')
     config_video_maxlen = config['Video'].getint('max_length')
+    config_video_fps = config['Video'].getint('fps')
 
     # Train
     print(f'Starting training, {config_num_episodes} episodes')
@@ -168,7 +169,7 @@ def run_environment(config: configparser.ConfigParser,
                         # Add to tensorboard
                         logger.add_video('Run_Video', vid_tensor,
                                          global_step=episode_idx,
-                                         fps=8)
+                                         fps=config_video_fps)
 
                     # Occasional print
                     if episode_idx % 100 == 0:
