@@ -4,11 +4,11 @@
 
 
 # Optional: message to put into the created directory? TODO fix this
-dir_message="Running memory tasks with RNN and long BPTTs on MiniGrid"
+dir_message="Running sanity check obstacle tasks with RNN and long BPTTs on MiniGrid"
 
 # The parent experimental directory, each experiment will be stored as a sub-
 # directory within this directory
-dir_path="/network/tmp1/chenant/ant/memory_minigrid/05-30/exp1_mem"
+dir_path="/network/tmp1/chenant/ant/memory_minigrid/05-30/exp2_obst"
 
 # Path to the parent directory containing the configuration files, one per
 # experiment. Experiment folder will be named after the config file names
