@@ -35,8 +35,9 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import save_image
 
-from dopatorch.agents.a2c.a2c_agent import A2CAgent
 from dopatorch.discrete_domains.minigrid_wrapper import MiniGridFlatWrapper
+from dopatorch.agents.a2c.a2c_agent import A2CAgent
+from dopatorch.agents.sab_ac.sab_ac_agent import SAB_ACAgent
 
 
 # ========================================
@@ -55,6 +56,20 @@ def init_agent(config: configparser.ConfigParser, env, device='cpu'):
 
     if agent_type == 'a2c':
         agent = A2CAgent(
+            action_space=env.action_space,
+            observation_shape=env.observation_space.shape,
+            observation_dtype=torch.float,
+            gamma=config['Agent'].getfloat('gamma'),
+            use_recurrent_net=config['Agent'].getboolean('use_recurrent_net'),
+            num_rollout_steps=config['Agent'].getint('num_rollout_steps'),
+            value_loss_coef=config['Agent'].getfloat('value_loss_coef'),
+            entropy_coef=config['Agent'].getfloat('entropy_coef'),
+            max_grad_norm=config['Agent'].getfloat('max_grad_norm'),
+            use_acktr=config['Agent'].getboolean('use_acktr'),
+            device=device
+        )
+    elif agent_type == 'sab_ac':
+        agent = SAB_ACAgent(
             action_space=env.action_space,
             observation_shape=env.observation_space.shape,
             observation_dtype=torch.float,

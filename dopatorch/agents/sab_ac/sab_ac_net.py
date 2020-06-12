@@ -76,7 +76,7 @@ class NNBase(nn.Module):
         if recurrent:
             self.rnn = sab_nn.SAB_LSTM(input_size=recurrent_input_size,
                                        hidden_size=hidden_size,
-                                       output_size=recurrent_input_size,
+                                       output_size=hidden_size,
                                        num_layers=1,
                                        truncate_length=50,
                                        remem_every_k=1,
@@ -133,9 +133,12 @@ class NNBase(nn.Module):
         T = x.size(0)
 
         x = x.unsqueeze(1)  # (T, 1, *obs_shape)
-        hxs = hxs.unsqueeze(1)  # (1, 1, hidden_dim)
+        # LSTM operation
+        hxs = tuple(
+            [hx.unsqueeze(1) for hx in hxs]
+        )  # Both h_t and c_t are now (1, 1, hidden_dim)
 
-        # TODO modify things here with memory
+        # TODO modify things here with memory?
 
         # ==
         # Pass sequence through recurrent net
@@ -144,7 +147,8 @@ class NNBase(nn.Module):
         # ==
         # Reshape to remove batch dimension and return
         y = y.squeeze(1)  # (T, output_dim)
-        hxs = hxs.squeeze(1)  # (1, hidden_dim)
+        # LSTM operation, change h_t and c_t back into (1, hidden_dim)
+        hxs = tuple([hx.squeeze(1) for hx in hxs])
 
         return y, hxs, mem
 
@@ -211,7 +215,7 @@ class MLPBase(NNBase):
         x = inputs
 
         if self.is_recurrent:
-            x, rnn_hxs, mem = self._forward_gru(x, rnn_hxs, mem, masks)
+            x, rnn_hxs, mem = self._forward_rnn(x, rnn_hxs, mem, masks)
 
         hidden_critic = self.critic(x)
         hidden_actor = self.actor(x)

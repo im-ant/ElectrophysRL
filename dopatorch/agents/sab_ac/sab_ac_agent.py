@@ -28,7 +28,7 @@ from dopatorch.agents.sab_ac.sab_ac_net import *
 from dopatorch.replay_memory.rollout_buffer import RolloutBuffer
 
 
-class A2CAgent(object):
+class SAB_ACAgent(object):
     def __init__(self,
                  action_space: spaces,
                  observation_shape: Tuple = (20,),
@@ -49,7 +49,7 @@ class A2CAgent(object):
         TODO define arguments
 
         """
-        super(A2CAgent, self).__init__()
+        super(SAB_ACAgent, self).__init__()
 
         # ==
         # Initialize basics
@@ -65,10 +65,13 @@ class A2CAgent(object):
         # ==
         # Initialize actor-critic net (potential TODO change to net initialization method?)
         self.use_recurrent_net = use_recurrent_net
+        self.hidden_size = 64
         self.ac_net = ActorCritic(
             self.observation_shape,
             self.action_space,
-            base_kwargs={'recurrent': self.use_recurrent_net})
+            base_kwargs={'recurrent': self.use_recurrent_net,
+                         'hidden_size': self.hidden_size}
+        )
         self.ac_net.to(self.device)
 
         # ==
@@ -221,8 +224,9 @@ class A2CAgent(object):
 
             # Get action-relevant quantities
             # NOTE below is LSTM specific
-            # NOTE: under the hood, mem is recorded at every instance
-            # TODO ensure that it is actually storing the memory at each step
+            # NOTE: under the hood, mem is recorded at every instance since I set it to 1
+            # TODO ensure that it is actually storing the memory at each step, and also
+            # need to change this in the future for multiple storage?
             t_value, t_actor_features, rnn_hxs, mem = self.ac_net.base(
                 inputs=o_t,
                 rnn_hxs=self.tup_hidden_states,
@@ -291,8 +295,8 @@ class A2CAgent(object):
             o_t, h_tm1, m_t = latest_tuple
 
             # Get final step value
-            t_fin_value, __, __ = self.ac_net.base(
-                o_t, h_tm1, self.tup_hidden_states, m_t
+            t_fin_value, __, __, __ = self.ac_net.base(
+                o_t, self.tup_hidden_states, t_mem, m_t
             )  # TODO NOTE I think this is okay? overall i can't use the stored
             # hidden state in the memory buffer anymore, must store locally
             # NOTE TODO i don't think i need to move the action step to before
